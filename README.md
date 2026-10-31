@@ -1,114 +1,70 @@
 # repo-forge
 
-Scaffold a new MIT-licensed repository with README, CI, tests and .gitignore for Python, Node or Rust in one command.
+Scaffold a new MIT-licensed repository with a README, CI workflow, tests, and a language-specific `.gitignore` for Python, Node.js, or Rust.
 
-## What it does
-
-Generates a complete starter repository structure with:
-- Source code directory with a main entry point
-- Test directory with example test
-- README.md with installation and usage sections
-- License file (MIT)
-- Language-appropriate .gitignore
-- Dependency or build configuration (pyproject.toml, package.json, Cargo.toml)
-
-All generated code follows a consistent house style: clear, testable, minimal.
-
-## Installation
-
-```bash
-pip install -e .
-```
-
-Or run directly:
-
-```bash
-python forge.py <name> [options]
-```
+The tool is a single Python file and uses only the Python standard library. It generates starter code and configuration. It does not install packages, initialize Git, or create a remote repository.
 
 ## Usage
 
-### Python project (default)
+Run the tool with Python 3.8 or newer:
 
 ```bash
 python forge.py my-project
 ```
 
-This creates:
-- my-project/
-  - my_project/ (module directory)
-    - __init__.py
-    - main.py
-  - tests/
-    - __init__.py
-    - test_main.py
-  - pyproject.toml
-  - README.md
-  - .gitignore
-  - LICENSE
-
-### Node.js project
+The command creates `./my-project`. Use `--lang` for Node.js or Rust:
 
 ```bash
 python forge.py my-app --lang node
-```
-
-This creates:
-- my-app/
-  - src/
-    - index.js
-  - test/
-    - index.test.js
-  - package.json
-  - README.md
-  - .gitignore
-  - LICENSE
-
-### Rust project
-
-```bash
 python forge.py my-tool --lang rust
 ```
 
-This creates:
-- my-tool/
-  - src/
-    - main.rs
-  - Cargo.toml
-  - README.md
-  - .gitignore
-  - LICENSE
-
-### Custom destination
+Use `--dest` to choose the parent directory:
 
 ```bash
 python forge.py my-project --dest /path/to/projects
 ```
 
-## Output structure
+That creates `/path/to/projects/my-project`.
 
-Each generated project includes:
-- A main entry point with example code
-- Tests with at least one example test case
-- README with installation, usage, and testing sections
-- MIT license with "Author" and "2026" placeholders (edit these)
-- .gitignore appropriate for the language
-- A note that the project is at v0.1.0
+## Generated files
 
-## Next steps after generation
+Every project includes:
 
-1. Edit README.md: replace "Brief description" and fill in real details
-2. Edit LICENSE: replace "Author" with your name
-3. Implement your functionality
-4. Run tests: `python -m unittest` (Python), `npm test` (Node), `cargo test` (Rust)
-5. Add dependencies as needed to the appropriate config file
-6. Initialize git and make your first commit
+- A versioned `0.1.0` starter entry point
+- A README with installation, usage, testing, and license sections
+- An MIT `LICENSE` with `Author` and `2026` placeholders
+- A language-specific `.gitignore`
+- A GitHub Actions workflow at `.github/workflows/ci.yml`
+- An example test, using a `tests` directory for Python, a `test` directory for Node.js, and an inline test module for Rust
+- The language's build or package configuration: `pyproject.toml`, `package.json`, or `Cargo.toml`
 
-## Testing
+Generated project names may contain letters, numbers, hyphens, and underscores, and must start with a letter or number. The generated files are overwritten if they already exist. An existing `LICENSE` file is preserved.
+
+## After generation
+
+1. Replace the brief description in `README.md`.
+2. Replace `Author` in `LICENSE` and the language configuration.
+3. Implement the project functionality.
+4. Install the language's declared development tools if needed.
+5. Run the generated test command.
+6. Initialize Git and make the first commit when ready.
+
+The generated test commands are:
 
 ```bash
-python -m unittest test_forge
+python -m unittest discover -s tests
+npm test
+cargo test
 ```
+
+## Testing repo-forge
+
+```bash
+python -m unittest
+```
+
+The test suite writes only temporary project files and makes no network calls.
 
 ## License
 
