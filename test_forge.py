@@ -45,6 +45,7 @@ class TestForge(unittest.TestCase):
         self.assertTrue((dest / "tests" / "test_main.py").exists())
         self.assertIn('packages = ["test_python"]', (dest / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertNotIn("name.replace", (dest / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertNotIn("@", (dest / "pyproject.toml").read_text(encoding="utf-8"))
         self.assert_common_files(dest, "python")
 
         result = subprocess.run(
@@ -64,7 +65,9 @@ class TestForge(unittest.TestCase):
         self.assertTrue((dest / "test" / "index.test.js").exists())
         package = json.loads((dest / "package.json").read_text(encoding="utf-8"))
         self.assertEqual(package["scripts"]["test"], "jest")
-        self.assertIn("const { main }", (dest / "test" / "index.test.js").read_text(encoding="utf-8"))
+        node_test = (dest / "test" / "index.test.js").read_text(encoding="utf-8")
+        self.assertIn("const { main }", node_test)
+        self.assertIn('toHaveBeenCalledWith("Hello from test-node")', node_test)
         self.assert_common_files(dest, "node")
 
     def test_generate_rust_project(self):
@@ -73,6 +76,8 @@ class TestForge(unittest.TestCase):
 
         self.assertTrue((dest / "Cargo.toml").exists())
         self.assertTrue((dest / "src" / "main.rs").exists())
+        self.assertNotIn("@", (dest / "Cargo.toml").read_text(encoding="utf-8"))
+        self.assertIn('assert_eq!(greeting(), "Hello from test-rust")', (dest / "src" / "main.rs").read_text(encoding="utf-8"))
         self.assertIn("cargo test", (dest / "README.md").read_text(encoding="utf-8"))
         self.assert_common_files(dest, "rust")
 
@@ -92,6 +97,18 @@ class TestForge(unittest.TestCase):
     def test_invalid_project_name_is_rejected(self):
         with self.assertRaises(ValueError):
             forge.generate_python_project("../outside", self.root / "project")
+
+    def test_python_project_name_starting_with_number_has_working_tests(self):
+        dest = self.root / "numeric-python"
+        forge.generate_python_project("123project", dest)
+
+        subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
     def test_existing_license_is_preserved(self):
         dest = self.root / "preserve-license"

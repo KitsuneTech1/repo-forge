@@ -150,16 +150,28 @@ if __name__ == "__main__":
     (tests_dir / "test_main.py").write_text(
         f'''"""Tests for {name}."""
 
+import importlib
+import io
 import unittest
+from contextlib import redirect_stdout
 
 
 class TestMain(unittest.TestCase):
     """Test the generated entry point."""
 
     def test_main_is_callable(self):
-        from {module_name}.main import main
+        main = importlib.import_module("{module_name}.main").main
 
         self.assertTrue(callable(main))
+
+    def test_main_prints_greeting(self):
+        main = importlib.import_module("{module_name}.main").main
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            main()
+
+        self.assertEqual(output.getvalue(), "Hello from {name}\\n")
 
 
 if __name__ == "__main__":
@@ -177,7 +189,7 @@ build-backend = "setuptools.build_meta"
 name = "{name}"
 version = "0.1.0"
 description = ""
-authors = [{{"name": "Author", "email": "author@example.com"}}]
+authors = [{{"name": "Author"}}]
 readme = "README.md"
 license = {{text = "MIT"}}
 requires-python = ">=3.8"
@@ -262,6 +274,16 @@ describe("{name}", () => {{
     test("main function exists", () => {{
         expect(typeof main).toBe("function");
     }});
+
+    test("main prints the greeting", () => {{
+        const log = jest.spyOn(console, "log").mockImplementation(() => {{}});
+        try {{
+            main();
+            expect(log).toHaveBeenCalledWith("Hello from {name}");
+        }} finally {{
+            log.mockRestore();
+        }}
+    }});
 }});
 ''',
         encoding="utf-8",
@@ -335,7 +357,7 @@ def generate_rust_project(name, dest):
 name = "{name}"
 version = "0.1.0"
 edition = "2021"
-authors = ["Author <author@example.com>"]
+authors = ["Author"]
 license = "MIT"
 
 [dependencies]
@@ -349,14 +371,20 @@ license = "MIT"
     (src_dir / "main.rs").write_text(
         f'''/// Main function for {name}
 fn main() {{
-    println!("Hello from {name}");
+    println!("{{}}", greeting());
+}}
+
+fn greeting() -> &'static str {{
+    "Hello from {name}"
 }}
 
 #[cfg(test)]
 mod tests {{
+    use super::*;
+
     #[test]
     fn it_works() {{
-        assert_eq!(2 + 2, 4);
+        assert_eq!(greeting(), "Hello from {name}");
     }}
 }}
 ''',
