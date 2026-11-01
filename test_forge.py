@@ -64,7 +64,7 @@ class TestForge(unittest.TestCase):
         self.assertTrue((dest / "src" / "index.js").exists())
         self.assertTrue((dest / "test" / "index.test.js").exists())
         package = json.loads((dest / "package.json").read_text(encoding="utf-8"))
-        self.assertEqual(package["scripts"]["test"], "jest")
+        self.assertEqual(package["scripts"]["test"], "jest --runInBand")
         node_test = (dest / "test" / "index.test.js").read_text(encoding="utf-8")
         self.assertIn("const { main }", node_test)
         self.assertIn('toHaveBeenCalledWith("Hello from test-node")', node_test)

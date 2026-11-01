@@ -296,7 +296,7 @@ describe("{name}", () => {{
                 "version": "0.1.0",
                 "description": "",
                 "main": "src/index.js",
-                "scripts": {"test": "jest", "start": "node src/index.js"},
+                "scripts": {"test": "jest --runInBand", "start": "node src/index.js"},
                 "author": "",
                 "license": "MIT",
                 "devDependencies": {"jest": "^29.0.0"},
