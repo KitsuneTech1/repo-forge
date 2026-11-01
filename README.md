@@ -1,72 +1,73 @@
 <p align="center"><a href="https://kitsunetechnologies.org/work"><img src="https://raw.githubusercontent.com/KitsuneTech1/.github/main/assets/kitsune-banner.svg" alt="Built by Kitsune Technologies" width="760"></a></p>
 
-# repo-forge
+# Repo Forge
 
-Scaffold a new MIT-licensed repository with a README, CI workflow, tests, and a language-specific `.gitignore` for Python, Node.js, or Rust.
+Generate a starter repository with working tests, CI, and gitignore for Python, Node.js, or Rust.
 
-The tool is a single Python file and uses only the Python standard library. It generates starter code and configuration. It does not install packages, initialize Git, or create a remote repository.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org)
 
-## Usage
+Repo Forge is a single Python file that scaffolds a new project with everything set up: a README template, test structure, GitHub Actions CI, and a language-specific `.gitignore`. It uses only the Python standard library and creates real, working code you can test and build on immediately.
 
-Run the tool with Python 3.8 or newer:
+## Quick start
+
+Clone the repo and run the generator:
 
 ```bash
+git clone https://github.com/KitsuneTech1/repo-forge.git
+cd repo-forge
 python forge.py my-project
 ```
 
-The command creates `./my-project`. Use `--lang` for Node.js or Rust:
+This creates a new `my-project` directory with a working Python scaffold. Run its tests right away:
+
+```bash
+cd my-project
+python -m unittest discover -s tests
+```
+
+For Node.js or Rust, add `--lang`:
 
 ```bash
 python forge.py my-app --lang node
 python forge.py my-tool --lang rust
 ```
 
-Use `--dest` to choose the parent directory:
+To generate in a different directory:
 
 ```bash
 python forge.py my-project --dest /path/to/projects
 ```
 
-That creates `/path/to/projects/my-project`.
+## What you get
 
-## Generated files
+Every generated project includes:
 
-Every project includes:
-
-- A versioned `0.1.0` starter entry point
-- A README with installation, usage, testing, and license sections
-- A `LICENSE` file. New projects receive MIT with `Author` and `2026` placeholders
+- A versioned `0.1.0` entry point and starter module
+- A README template with sections for installation, usage, testing, and license
+- A `LICENSE` file (MIT, with `Author` and year placeholders to fill in)
 - A language-specific `.gitignore`
-- A GitHub Actions workflow at `.github/workflows/ci.yml`
-- An example test, using a `tests` directory for Python, a `test` directory for Node.js, and an inline test module for Rust
-- The language's build or package configuration: `pyproject.toml`, `package.json`, or `Cargo.toml`
+- A GitHub Actions workflow (`.github/workflows/ci.yml`) that runs tests on push and pull request
+- Working example tests in the right structure for each language
+- Build configuration: `pyproject.toml`, `package.json`, or `Cargo.toml`
 
-Generated project names may contain letters, numbers, hyphens, and underscores, and must start with a letter or number. Windows device names such as `CON` and `NUL` are rejected. The generated files are overwritten if they already exist. An existing `LICENSE` file is preserved and referenced by the generated metadata.
+Project names can include letters, numbers, hyphens, and underscores, and must start with a letter or number. Windows reserved names like `CON` and `NUL` are rejected. Generated files overwrite existing ones, except existing `LICENSE` files are kept.
 
-## After generation
+## After generating a project
 
-1. Replace the brief description in `README.md`.
-2. If a new MIT `LICENSE` was generated, replace its `Author` placeholder. Replace `Author` in the language configuration if desired.
-3. Implement the project functionality.
-4. Install the language's declared development tools if needed.
-5. Run the generated test command.
-6. Initialize Git and make the first commit when ready.
+1. Replace the placeholder description in `README.md`.
+2. Update the `Author` field in `LICENSE` and the language config.
+3. Implement your functionality.
+4. Verify tests pass: `python -m unittest discover -s tests` (Python), `npm test` (Node), or `cargo test` (Rust).
+5. Initialize Git and make your first commit when ready.
 
-The generated test commands are:
+## Testing repo-forge itself
 
-```bash
-python -m unittest discover -s tests
-npm test
-cargo test
-```
-
-## Testing repo-forge
+The test suite runs offline:
 
 ```bash
 python -m unittest
 ```
-
-The test suite writes only temporary project files and makes no network calls.
 
 ## License
 
