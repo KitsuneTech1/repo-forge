@@ -91,6 +91,51 @@ jobs:
 }
 
 
+WINDOWS_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{number}" for number in range(1, 10)}
+    | {f"LPT{number}" for number in range(1, 10)}
+)
+
+
+def _reject_symlink_components(path):
+    """Reject symlinked path components before any generated file is touched."""
+    path = Path(path)
+    for component in (path, *path.parents):
+        if component.is_symlink():
+            raise ValueError(f"refusing to use symbolic link path: {path}")
+
+
+def _ensure_directory(path, *, parents=False):
+    """Create a real directory without following an existing symlink."""
+    path = Path(path)
+    _reject_symlink_components(path)
+    if path.exists() and not path.is_dir():
+        raise ValueError(f"expected a directory: {path}")
+    path.mkdir(parents=parents, exist_ok=True)
+    _reject_symlink_components(path)
+
+
+def _write_file(path, content):
+    """Write a regular generated file without following an existing symlink."""
+    path = Path(path)
+    _reject_symlink_components(path)
+    if path.exists() and not path.is_file():
+        raise ValueError(f"expected a regular file: {path}")
+    path.write_text(content, encoding="utf-8")
+
+
+def _has_existing_license(dest):
+    """Return whether a usable license file already exists in the destination."""
+    license_path = Path(dest) / "LICENSE"
+    _reject_symlink_components(license_path)
+    if not license_path.exists():
+        return False
+    if not license_path.is_file():
+        raise ValueError(f"expected LICENSE to be a regular file: {license_path}")
+    return True
+
+
 def _validate_project_name(name):
     """Reject names that could escape the destination or break generated code."""
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name):
@@ -98,33 +143,36 @@ def _validate_project_name(name):
             "project name must start with a letter or number and contain only "
             "letters, numbers, hyphens, and underscores"
         )
+    if name.upper() in WINDOWS_DEVICE_NAMES:
+        raise ValueError(f"project name is a reserved Windows device name: {name}")
 
 
-def _write_common_files(dest, language):
+def _write_common_files(dest, language, existing_license):
     """Write files shared by every generated repository."""
     workflow_dir = dest / ".github" / "workflows"
-    workflow_dir.mkdir(parents=True, exist_ok=True)
-    (workflow_dir / "ci.yml").write_text(CI_FILES[language], encoding="utf-8")
+    _ensure_directory(workflow_dir, parents=True)
+    _write_file(workflow_dir / "ci.yml", CI_FILES[language])
 
-    license_path = dest / "LICENSE"
-    if not license_path.exists():
-        license_path.write_text(LICENSE_TEXT, encoding="utf-8")
+    if not existing_license:
+        _write_file(dest / "LICENSE", LICENSE_TEXT)
 
 
 def generate_python_project(name, dest):
     """Generate a Python project scaffold."""
     _validate_project_name(name)
     dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
+    _ensure_directory(dest, parents=True)
+    existing_license = _has_existing_license(dest)
     module_name = name.replace("-", "_")
 
     src_dir = dest / module_name
-    src_dir.mkdir(exist_ok=True)
-    (src_dir / "__init__.py").write_text(
+    _ensure_directory(src_dir)
+    _write_file(
+        src_dir / "__init__.py",
         f'"""{name} package."""\n\n__version__ = "0.1.0"\n',
-        encoding="utf-8",
     )
-    (src_dir / "main.py").write_text(
+    _write_file(
+        src_dir / "main.py",
         f'''#!/usr/bin/env python3
 """Main module for {name}."""
 
@@ -137,17 +185,17 @@ def main():
 if __name__ == "__main__":
     main()
 ''',
-        encoding="utf-8",
     )
-    (src_dir / "__main__.py").write_text(
+    _write_file(
+        src_dir / "__main__.py",
         "from .main import main\n\n\nif __name__ == \"__main__\":\n    main()\n",
-        encoding="utf-8",
     )
 
     tests_dir = dest / "tests"
-    tests_dir.mkdir(exist_ok=True)
-    (tests_dir / "__init__.py").write_text("", encoding="utf-8")
-    (tests_dir / "test_main.py").write_text(
+    _ensure_directory(tests_dir)
+    _write_file(tests_dir / "__init__.py", "")
+    _write_file(
+        tests_dir / "test_main.py",
         f'''"""Tests for {name}."""
 
 import importlib
@@ -177,10 +225,11 @@ class TestMain(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 ''',
-        encoding="utf-8",
     )
 
-    (dest / "pyproject.toml").write_text(
+    license_metadata = '{file = "LICENSE"}' if existing_license else '{text = "MIT"}'
+    _write_file(
+        dest / "pyproject.toml",
         f'''[build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -191,19 +240,20 @@ version = "0.1.0"
 description = ""
 authors = [{{"name": "Author"}}]
 readme = "README.md"
-license = {{text = "MIT"}}
+license = {license_metadata}
 requires-python = ">=3.8"
 
 [tool.setuptools]
 packages = ["{module_name}"]
 ''',
-        encoding="utf-8",
     )
-    (dest / ".gitignore").write_text(
+    _write_file(
+        dest / ".gitignore",
         """__pycache__/\n*.py[cod]\n*$py.class\n*.so\n.Python\nbuild/\ndevelop-eggs/\ndist/\ndownloads/\neggs/\n.eggs/\nlib/\nlib64/\nparts/\nsdist/\nvar/\nwheels/\n*.egg-info/\n.installed.cfg\n*.egg\n.pytest_cache/\n.coverage\nhtmlcov/\n.venv\nvenv/\nENV/\n""",
-        encoding="utf-8",
     )
-    (dest / "README.md").write_text(
+    license_section = "See LICENSE." if existing_license else "MIT License\n\nCopyright (c) 2026 Author"
+    _write_file(
+        dest / "README.md",
         f'''# {name}
 
 Brief description of what this project does.
@@ -230,24 +280,23 @@ The same test command runs in GitHub Actions for pushes and pull requests.
 
 ## License
 
-MIT License
-
-Copyright (c) 2026 Author
+{license_section}
 ''',
-        encoding="utf-8",
     )
-    _write_common_files(dest, "python")
+    _write_common_files(dest, "python", existing_license)
 
 
 def generate_node_project(name, dest):
     """Generate a Node.js project scaffold."""
     _validate_project_name(name)
     dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
+    _ensure_directory(dest, parents=True)
+    existing_license = _has_existing_license(dest)
 
     src_dir = dest / "src"
-    src_dir.mkdir(exist_ok=True)
-    (src_dir / "index.js").write_text(
+    _ensure_directory(src_dir)
+    _write_file(
+        src_dir / "index.js",
         f'''/**
  * Main entry point for {name}
  */
@@ -262,12 +311,12 @@ if (require.main === module) {{
     main();
 }}
 ''',
-        encoding="utf-8",
     )
 
     test_dir = dest / "test"
-    test_dir.mkdir(exist_ok=True)
-    (test_dir / "index.test.js").write_text(
+    _ensure_directory(test_dir)
+    _write_file(
+        test_dir / "index.test.js",
         f'''const {{ main }} = require("../src/index.js");
 
 describe("{name}", () => {{
@@ -286,10 +335,11 @@ describe("{name}", () => {{
     }});
 }});
 ''',
-        encoding="utf-8",
     )
 
-    (dest / "package.json").write_text(
+    license_metadata = "SEE LICENSE IN LICENSE" if existing_license else "MIT"
+    _write_file(
+        dest / "package.json",
         json.dumps(
             {
                 "name": name,
@@ -298,19 +348,20 @@ describe("{name}", () => {{
                 "main": "src/index.js",
                 "scripts": {"test": "jest --runInBand", "start": "node src/index.js"},
                 "author": "",
-                "license": "MIT",
+                "license": license_metadata,
                 "devDependencies": {"jest": "^29.0.0"},
             },
             indent=2,
         )
         + "\n",
-        encoding="utf-8",
     )
-    (dest / ".gitignore").write_text(
+    _write_file(
+        dest / ".gitignore",
         """node_modules/\n.npm\n.DS_Store\ndist/\nbuild/\n.env\n.env.local\n*.log\ncoverage/\n.vscode/\n.idea/\n""",
-        encoding="utf-8",
     )
-    (dest / "README.md").write_text(
+    license_section = "See LICENSE." if existing_license else "MIT License\n\nCopyright (c) 2026 Author"
+    _write_file(
+        dest / "README.md",
         f'''# {name}
 
 Brief description of what this project does.
@@ -337,38 +388,38 @@ The same test command runs in GitHub Actions for pushes and pull requests.
 
 ## License
 
-MIT License
-
-Copyright (c) 2026 Author
+{license_section}
 ''',
-        encoding="utf-8",
     )
-    _write_common_files(dest, "node")
+    _write_common_files(dest, "node", existing_license)
 
 
 def generate_rust_project(name, dest):
     """Generate a Rust project scaffold."""
     _validate_project_name(name)
     dest = Path(dest)
-    dest.mkdir(parents=True, exist_ok=True)
+    _ensure_directory(dest, parents=True)
+    existing_license = _has_existing_license(dest)
 
-    (dest / "Cargo.toml").write_text(
+    license_metadata = 'license-file = "LICENSE"' if existing_license else 'license = "MIT"'
+    _write_file(
+        dest / "Cargo.toml",
         f'''[package]
 name = "{name}"
 version = "0.1.0"
 edition = "2021"
 authors = ["Author"]
-license = "MIT"
+{license_metadata}
 
 [dependencies]
 
 [dev-dependencies]
 ''',
-        encoding="utf-8",
     )
     src_dir = dest / "src"
-    src_dir.mkdir(exist_ok=True)
-    (src_dir / "main.rs").write_text(
+    _ensure_directory(src_dir)
+    _write_file(
+        src_dir / "main.rs",
         f'''/// Main function for {name}
 fn main() {{
     println!("{{}}", greeting());
@@ -388,13 +439,14 @@ mod tests {{
     }}
 }}
 ''',
-        encoding="utf-8",
     )
-    (dest / ".gitignore").write_text(
+    _write_file(
+        dest / ".gitignore",
         """/target/\n**/*.rs.bk\nCargo.lock\n.DS_Store\n.vscode/\n.idea/\n""",
-        encoding="utf-8",
     )
-    (dest / "README.md").write_text(
+    license_section = "See LICENSE." if existing_license else "MIT License\n\nCopyright (c) 2026 Author"
+    _write_file(
+        dest / "README.md",
         f'''# {name}
 
 Brief description of what this project does.
@@ -415,13 +467,10 @@ The same test command runs in GitHub Actions for pushes and pull requests.
 
 ## License
 
-MIT License
-
-Copyright (c) 2026 Author
+{license_section}
 ''',
-        encoding="utf-8",
     )
-    _write_common_files(dest, "rust")
+    _write_common_files(dest, "rust", existing_license)
 
 
 def main():

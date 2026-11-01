@@ -33,18 +33,18 @@ Every project includes:
 
 - A versioned `0.1.0` starter entry point
 - A README with installation, usage, testing, and license sections
-- An MIT `LICENSE` with `Author` and `2026` placeholders
+- A `LICENSE` file. New projects receive MIT with `Author` and `2026` placeholders
 - A language-specific `.gitignore`
 - A GitHub Actions workflow at `.github/workflows/ci.yml`
 - An example test, using a `tests` directory for Python, a `test` directory for Node.js, and an inline test module for Rust
 - The language's build or package configuration: `pyproject.toml`, `package.json`, or `Cargo.toml`
 
-Generated project names may contain letters, numbers, hyphens, and underscores, and must start with a letter or number. The generated files are overwritten if they already exist. An existing `LICENSE` file is preserved.
+Generated project names may contain letters, numbers, hyphens, and underscores, and must start with a letter or number. Windows device names such as `CON` and `NUL` are rejected. The generated files are overwritten if they already exist. An existing `LICENSE` file is preserved and referenced by the generated metadata.
 
 ## After generation
 
 1. Replace the brief description in `README.md`.
-2. Replace `Author` in `LICENSE` and the language configuration.
+2. If a new MIT `LICENSE` was generated, replace its `Author` placeholder. Replace `Author` in the language configuration if desired.
 3. Implement the project functionality.
 4. Install the language's declared development tools if needed.
 5. Run the generated test command.

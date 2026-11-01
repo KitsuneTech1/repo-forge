@@ -2,6 +2,7 @@
 """Offline tests for repo-forge."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,17 @@ class TestForge(unittest.TestCase):
         self.assertIn('toHaveBeenCalledWith("Hello from test-node")', node_test)
         self.assert_common_files(dest, "node")
 
+        node = shutil.which("node")
+        if node:
+            result = subprocess.run(
+                [node, "src/index.js"],
+                cwd=dest,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(result.stdout, "Hello from test-node\n")
+
     def test_generate_rust_project(self):
         dest = self.root / "test-rust"
         forge.generate_rust_project("test-rust", dest)
@@ -80,6 +92,18 @@ class TestForge(unittest.TestCase):
         self.assertIn('assert_eq!(greeting(), "Hello from test-rust")', (dest / "src" / "main.rs").read_text(encoding="utf-8"))
         self.assertIn("cargo test", (dest / "README.md").read_text(encoding="utf-8"))
         self.assert_common_files(dest, "rust")
+
+        cargo = shutil.which("cargo")
+        if cargo:
+            result = subprocess.run(
+                [cargo, "test", "--offline"],
+                cwd=dest,
+                capture_output=True,
+                text=True,
+                check=True,
+                env={**os.environ, "CARGO_NET_OFFLINE": "true"},
+            )
+            self.assertIn("1 passed", result.stdout)
 
     def test_cli_creates_named_project_under_destination(self):
         result = subprocess.run(
@@ -102,23 +126,66 @@ class TestForge(unittest.TestCase):
         dest = self.root / "numeric-python"
         forge.generate_python_project("123project", dest)
 
-        subprocess.run(
+        result = subprocess.run(
             [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
             cwd=dest,
             capture_output=True,
             text=True,
             check=True,
         )
+        self.assertIn("Ran 2 tests", result.stderr)
+        self.assertIn("OK", result.stderr)
 
     def test_existing_license_is_preserved(self):
-        dest = self.root / "preserve-license"
-        dest.mkdir()
-        license_text = "existing license\n"
-        (dest / "LICENSE").write_text(license_text, encoding="utf-8")
+        for language, generator in (
+            ("python", forge.generate_python_project),
+            ("node", forge.generate_node_project),
+            ("rust", forge.generate_rust_project),
+        ):
+            with self.subTest(language=language):
+                dest = self.root / language
+                dest.mkdir()
+                license_text = "existing license\n"
+                (dest / "LICENSE").write_text(license_text, encoding="utf-8")
 
-        forge.generate_node_project("preserve-license", dest)
+                generator(f"preserve-{language}", dest)
 
-        self.assertEqual((dest / "LICENSE").read_text(encoding="utf-8"), license_text)
+                self.assertEqual((dest / "LICENSE").read_text(encoding="utf-8"), license_text)
+                readme_license = (dest / "README.md").read_text(encoding="utf-8").split(
+                    "## License", 1
+                )[1]
+                self.assertIn("See LICENSE.", readme_license)
+                self.assertNotIn("MIT License", readme_license)
+
+                if language == "python":
+                    metadata = (dest / "pyproject.toml").read_text(encoding="utf-8")
+                    self.assertIn('license = {file = "LICENSE"}', metadata)
+                elif language == "node":
+                    package = json.loads((dest / "package.json").read_text(encoding="utf-8"))
+                    self.assertEqual(package["license"], "SEE LICENSE IN LICENSE")
+                else:
+                    metadata = (dest / "Cargo.toml").read_text(encoding="utf-8")
+                    self.assertIn('license-file = "LICENSE"', metadata)
+                    self.assertNotIn('license = "MIT"', metadata)
+
+    def test_windows_device_names_are_rejected(self):
+        for name in ("CON", "NUL", "COM1", "LPT9"):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, "reserved"):
+                    forge.generate_python_project(name, self.root / name.lower())
+
+    def test_symlinked_destination_is_rejected(self):
+        target = self.root / "target"
+        target.mkdir()
+        alias = self.root / "alias"
+        try:
+            alias.symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+
+        with self.assertRaisesRegex(ValueError, "symbolic link"):
+            forge.generate_python_project("safe-name", alias / "project")
+        self.assertFalse((target / "project").exists())
 
     def test_readmes_include_testing_and_ci(self):
         for language, generator in (
