@@ -4,10 +4,22 @@
 
 Generate a starter repository with working tests, CI, and gitignore for Python, Node.js, or Rust.
 
+[![Build Status](https://github.com/KitsuneTech1/repo-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/KitsuneTech1/repo-forge/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org)
 
 Repo Forge is a single Python file that scaffolds a new project with everything set up: a README template, test structure, GitHub Actions CI, and a language-specific `.gitignore`. It uses only the Python standard library and creates real, working code you can test and build on immediately.
+
+
+## Architecture & Data Flow
+
+```mermaid
+flowchart LR
+    A[CLI: repo-forge --type python|node|rust] --> B[Template Synthesis Engine]
+    B --> C[Generate Starter Code, Tests, .gitignore]
+    C --> D[Generate GitHub Actions CI Workflow]
+    D --> E[Ready-to-Ship Initialized Repository]
+```
 
 ## Quick start
 
